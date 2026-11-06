@@ -1,7 +1,8 @@
 #import "StdPatch/StdPatch.h"
 
 extern DPPatch DPWindowMaterial, DPTranslucentSidebar;
-static char DPHiddenKey, DPDiaHiddenKey, DPMaterialKey, DPGlassKey, DPOpaqueKey;
+static char DPHiddenKey, DPDiaHiddenKey, DPMaterialKey, DPGlassKey, DPOpaqueKey, DPTintAlphaKey;
+static const CGFloat DPProfileTintOpacity = 0.80;
 
 static NSString *const DPMaterials[] = {
     [NSVisualEffectMaterialSidebar] = @"Sidebar",
@@ -93,7 +94,11 @@ static void DPApplyMaterialUnder(NSView *tint, BOOL floating) {
         effect.blendingMode = [ours[1] integerValue];
         effect.state = [ours[2] integerValue];
     }
-    DPHide(DPWashIn(tint), translucent);
+    NSNumber *diaAlpha = DPDiaValue(tint, &DPTintAlphaKey, @(tint.alphaValue));
+    NSNumber *alpha = DPWindowMaterial.on ? @(diaAlpha.doubleValue * DPProfileTintOpacity) : diaAlpha;
+    DPOverride(tint, &DPTintAlphaKey, diaAlpha, alpha);
+    if (tint.alphaValue != alpha.doubleValue) tint.alphaValue = alpha.doubleValue;
+    DPHide(DPWashIn(tint), translucent && !DPWindowMaterial.on);
     for (NSView *view in backgrounds) DPHide(view, glass);
 
     // A drawn glass view ignores a new variant.
@@ -166,7 +171,11 @@ NSString *DPVerifyWindowMaterial(DPPatch *patch) {
         NSView *wash = DPWashIn(tint);
         if (!wash) return @"no theme color to replace";
         if (tint.hidden) return @"profile color hidden";
-        if (wash.hidden != translucent) return translucent ? @"theme color still shows" : @"theme color still hidden";
+        BOOL hidden = (translucent && !DPWindowMaterial.on) || [DPGet(tint, &DPDiaHiddenKey) boolValue];
+        if (wash.hidden != hidden) return hidden ? @"theme color still shows" : @"theme color still hidden";
+        NSNumber *diaAlpha = DPDiaValue(tint, &DPTintAlphaKey, @(tint.alphaValue));
+        CGFloat alpha = diaAlpha.doubleValue * (DPWindowMaterial.on ? DPProfileTintOpacity : 1);
+        if (fabs(tint.alphaValue - alpha) > 0.001) return @"profile tint opacity changed";
         if ((DPGet(tint.superview, &DPGlassKey) != nil) != glass) return glass ? @"no glass behind the window" : @"glass left behind";
         NSVisualEffectView *effect = (NSVisualEffectView *)DPFindView(tint.superview, ^BOOL(NSView *view) {
             return [view isKindOfClass:NSVisualEffectView.class] && !view.isHiddenOrHasHiddenAncestor;
@@ -186,7 +195,7 @@ DP_PATCH(DPWindowMaterial) {
     .key = @"windowMaterial",
     .order = 99,
     .title = @"Window Material",
-    .detail = @"Show a material or Liquid Glass behind the tabs and sidebar, still tinted with the profile’s color.",
+    .detail = @"Show a material or Liquid Glass behind the tabs and sidebar with a subtle profile-color tint.",
     .symbol = @"circle.on.app.liquid.glass.fill square.2.layers.3d.top.filled",
     .tint = @"systemBrownColor",
     .section = @"Window",
