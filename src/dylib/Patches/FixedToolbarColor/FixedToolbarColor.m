@@ -172,7 +172,7 @@ DP_PATCH(DPFixedToolbarColor) {
     .detail = @"Keep the toolbar and its address field one color you pick instead of changing with each page.",
     .hint = @"The toolbar’s icons and text still adapt to the page, so pick colors they stay readable on.",
     .symbol = @"paintpalette.fill",
-    .tint = @"systemOrangeColor",
+    .tint = @"systemIndigoColor",
     .section = @"Toolbar",
     .classes = DPClasses(DPDiaToolbar, DPDiaColorView, DPDiaAddressField),
     .rows = DPFixedToolbarColorRows,
